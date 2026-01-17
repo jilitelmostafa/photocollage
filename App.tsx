@@ -4,7 +4,7 @@ import { CollageItem, ItemType, DragState, TransformState } from './types';
 import CanvasItem from './components/CanvasItem';
 import { UploadIcon, TextIcon, DownloadIcon, TrashIcon, BringFrontIcon, LayoutIcon } from './components/Icons';
 import { exportCanvasToImage } from './utils/exportUtils';
-import { TEMPLATES, Template } from './utils/templates';
+import { MOSAIC_TEMPLATES, ARTISTIC_TEMPLATES, Template } from './utils/templates';
 
 const DEFAULT_CANVAS_WIDTH = 800;
 const DEFAULT_CANVAS_HEIGHT = 600;
@@ -13,10 +13,11 @@ const App: React.FC = () => {
   // --- State ---
   const [items, setItems] = useState<CollageItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [backgroundColor, setBackgroundColor] = useState<string>('#e0e7ff'); // Light blueish default for better white border contrast
+  const [backgroundColor, setBackgroundColor] = useState<string>('#ffffff'); 
   const [canvasSize, setCanvasSize] = useState({ width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT });
   const [isExporting, setIsExporting] = useState(false);
   const [activeTab, setActiveTab] = useState<'content' | 'templates'>('content');
+  const [templateCat, setTemplateCat] = useState<'mosaic' | 'artistic'>('mosaic');
 
   // --- Interaction Refs ---
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -69,11 +70,11 @@ const App: React.FC = () => {
           y: slot.y * canvasSize.height,
           width: slot.w * canvasSize.width,
           height: slot.h * canvasSize.height,
-          rotation: slot.rotation || 0, // Apply rotation
-          zIndex: slot.zIndex ? slot.zIndex : index + 1, // Apply custom zIndex or default
+          rotation: slot.rotation || 0, // Use slot rotation (important for artistic)
+          zIndex: slot.zIndex || index + 1,
           borderRadius: slot.borderRadius || '0',
           borderWidth: slot.borderWidth || 0,
-          borderColor: slot.borderColor || '#fff',
+          borderColor: slot.borderColor || 'transparent',
           shadowBlur: slot.shadowBlur || 0,
         });
       } else {
@@ -82,7 +83,7 @@ const App: React.FC = () => {
           ...item, 
           x: canvasSize.width/2 - 50 + (index*10),
           y: canvasSize.height/2 - 50 + (index*10),
-          zIndex: 100 + index 
+          zIndex: 100 + index
         });
       }
     });
@@ -120,12 +121,12 @@ const App: React.FC = () => {
             y: (canvasSize.height / 2 - h / 2) + offset,
             width: w,
             height: h,
-            rotation: (Math.random() * 10) - 5, // Slight random rotation for natural feel
+            rotation: 0,
             zIndex: items.length + index + 1,
             borderRadius: '0',
-            borderWidth: 8, // Default polaroid style for new uploads
-            borderColor: '#fff',
-            shadowBlur: 10
+            borderWidth: 0,
+            borderColor: 'transparent',
+            shadowBlur: 0
           };
 
           setItems(prev => [...prev, newItem]);
@@ -327,12 +328,12 @@ const App: React.FC = () => {
              y: dropY,
              width: w,
              height: h,
-             rotation: (Math.random() * 10) - 5,
+             rotation: 0,
              zIndex: items.length + 1,
              borderRadius: '0',
-             borderWidth: 8,
-             borderColor: '#fff',
-             shadowBlur: 10
+             borderWidth: 0,
+             borderColor: 'transparent',
+             shadowBlur: 0
            };
            setItems(prev => [...prev, newItem]);
            setSelectedId(newItem.id);
@@ -346,6 +347,8 @@ const App: React.FC = () => {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
+
+  const visibleTemplates = templateCat === 'mosaic' ? MOSAIC_TEMPLATES : ARTISTIC_TEMPLATES;
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-gray-100">
@@ -387,7 +390,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab('templates')}
               className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'templates' ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-750' : 'text-gray-400 hover:text-white'}`}
             >
-              Designs
+              Designs ({visibleTemplates.length})
             </button>
           </div>
 
@@ -485,36 +488,56 @@ const App: React.FC = () => {
                 </div>
               </>
             ) : (
-              <div className="p-4">
-                 <p className="text-xs text-gray-500 mb-4">Click a design to apply it to your photos.</p>
-                 <div className="grid grid-cols-2 gap-3">
-                    {TEMPLATES.map(template => (
-                      <button
-                        key={template.id}
-                        onClick={() => handleApplyTemplate(template)}
-                        className="flex flex-col items-center gap-2 group"
-                      >
-                         <div className="w-full aspect-square bg-gray-700 rounded border border-gray-600 group-hover:border-blue-500 group-hover:bg-gray-650 transition-all relative overflow-hidden shadow-sm">
-                            {template.slots.map((s, i) => (
-                              <div 
-                                key={i}
-                                className="absolute bg-gray-500 border border-gray-800/20"
-                                style={{
-                                  left: `${s.x * 100}%`,
-                                  top: `${s.y * 100}%`,
-                                  width: `${s.w * 100}%`,
-                                  height: `${s.h * 100}%`,
-                                  borderRadius: s.borderRadius || '0',
-                                  transform: `rotate(${s.rotation || 0}deg)`,
-                                  zIndex: s.zIndex || 1,
-                                  border: s.borderWidth ? `${s.borderWidth/2}px solid #fff` : 'none' // Scaled down preview border
-                                }}
-                              />
-                            ))}
-                         </div>
-                         <span className="text-xs text-gray-400 group-hover:text-white text-center">{template.name}</span>
-                      </button>
-                    ))}
+              <div className="flex flex-col h-full">
+                 <div className="flex p-2 bg-gray-750 border-b border-gray-700 sticky top-0 z-10 gap-2">
+                    <button 
+                      onClick={() => setTemplateCat('mosaic')}
+                      className={`flex-1 py-1.5 px-3 rounded text-xs font-semibold transition-all ${templateCat === 'mosaic' ? 'bg-blue-600 text-white shadow' : 'bg-gray-700 text-gray-400 hover:text-gray-200'}`}
+                    >
+                      Mosaic
+                    </button>
+                    <button 
+                      onClick={() => setTemplateCat('artistic')}
+                      className={`flex-1 py-1.5 px-3 rounded text-xs font-semibold transition-all ${templateCat === 'artistic' ? 'bg-pink-600 text-white shadow' : 'bg-gray-700 text-gray-400 hover:text-gray-200'}`}
+                    >
+                      Artistic
+                    </button>
+                 </div>
+                 
+                 <div className="p-4 overflow-y-auto">
+                   <p className="text-xs text-gray-500 mb-4 text-center">
+                     {templateCat === 'mosaic' ? 'Seamless geometric layouts' : 'Ornate, overlapping, circular designs'}
+                   </p>
+                   <div className="grid grid-cols-2 gap-3">
+                      {visibleTemplates.map(template => (
+                        <button
+                          key={template.id}
+                          onClick={() => handleApplyTemplate(template)}
+                          className="flex flex-col items-center gap-2 group"
+                        >
+                           <div className="w-full aspect-square bg-gray-700 rounded border border-gray-600 group-hover:border-blue-500 group-hover:bg-gray-650 transition-all relative overflow-hidden shadow-sm">
+                              {template.slots.map((s, i) => (
+                                <div 
+                                  key={i}
+                                  className={`absolute ${s.borderColor === 'transparent' ? 'bg-gray-500 border-gray-800/10' : 'bg-gray-500'}`}
+                                  style={{
+                                    left: `${s.x * 100}%`,
+                                    top: `${s.y * 100}%`,
+                                    width: `${s.w * 100}%`,
+                                    height: `${s.h * 100}%`,
+                                    borderRadius: s.borderRadius || '0',
+                                    border: s.borderWidth ? `${s.borderWidth/4}px solid #fff` : '1px solid rgba(0,0,0,0.1)',
+                                    transform: `rotate(${s.rotation || 0}deg)`,
+                                    zIndex: s.zIndex || 1,
+                                    boxShadow: s.shadowBlur ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
+                                  }}
+                                />
+                              ))}
+                           </div>
+                           <span className="text-xs text-gray-400 group-hover:text-white text-center truncate w-full">{template.name}</span>
+                        </button>
+                      ))}
+                   </div>
                  </div>
               </div>
             )}
@@ -542,7 +565,7 @@ const App: React.FC = () => {
           {/* The Canvas */}
           <div 
             ref={canvasRef}
-            className="relative shadow-2xl transition-all duration-200 ease-out checkerboard"
+            className="relative shadow-2xl transition-all duration-200 ease-out"
             style={{ 
               width: canvasSize.width, 
               height: canvasSize.height,
@@ -565,7 +588,7 @@ const App: React.FC = () => {
                  <div className="text-center">
                     <LayoutIcon />
                     <p className="text-gray-500 text-xl font-medium mt-2">Start Creating</p>
-                    <p className="text-gray-400 text-sm mt-1">Upload photos and choose a design</p>
+                    <p className="text-gray-400 text-sm mt-1">Upload photos and choose a layout</p>
                  </div>
                </div>
             )}
